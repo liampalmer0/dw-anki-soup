@@ -1,8 +1,9 @@
 from bs4 import BeautifulSoup
+import subprocess
+import sys
 
-with open('./page-example.html') as fp:
-    soup = BeautifulSoup(fp, 'html.parser')
+soup = BeautifulSoup(subprocess.run(["curl", sys.argv[1]], capture_output=True).stdout, 'html.parser')
 
-for x in soup.select("div.row .vocabulary-entry .richtext-content-container"):
-    for s in x.stripped_strings:
+for entry in soup.select("div.row .vocabulary-entry .richtext-content-container"):
+    for s in entry.stripped_strings:
         print(s)
