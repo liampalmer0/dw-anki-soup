@@ -2,6 +2,8 @@ from bs4 import BeautifulSoup, SoupStrainer
 import subprocess
 import click
 import sys
+import unicodedata
+import genanki
 
 def validate_use_entry(choice):
     if choice != 'y' and choice != 'n' and choice != 'e' and choice != 'edit':
@@ -15,20 +17,22 @@ def add_entries(entries, deck):
     click.echo('adding {} to the {} deck'.format(len(entries), deck))
 
 def edit(**args):
-    choice = click.prompt('Edit [front/back/both]')
-    if choice != 'both' and choice != 'front' and choice != 'back':
-        click.echo(click.style('Invalid input'))
-        # TODO: set up loop to re-prompt
+    choice = click.prompt('Edit [front/back/all]')
+    while choice != 'all' and choice != 'front' and choice != 'back' and choice != 'q':
+        click.echo(click.style('Invalid input! ([q] to quit editing)'))
+        choice = click.prompt('Edit [front/back/all]')
+    if choice == 'q':
         return {'front':args['front'], 'back': args['back']}
+    elif choice == 'all':
+        click.echo('Editing All Fields')
+        new_front = click.prompt('Enter new front')
+        new_back = click.prompt('Enter new back')
+        new_words = {'front': new_front, 'back': new_back}
     else:
-        if choice == 'both':
-            # TODO: editing for both
-            click.echo('editing all')
-        else:
-            new_words = {'front': args['front'], 'back': args['back']}
-            click.echo('Editing:\n{}'.format(args[choice]))
-            new_words[choice] = click.prompt('Enter new value')
-        return new_words
+        new_words = {'front': args['front'], 'back': args['back']}
+        click.echo('Editing:\n{}'.format(args[choice]))
+        new_words[choice] = click.prompt('Enter new value')
+    return new_words
 
 @click.command()
 @click.option('-i', is_flag=True, help='Interactively review and confirm vocabulary entries')
@@ -41,8 +45,8 @@ def parse(url, i):
         for entry in soup.select("div.row.vocabulary"):
             cols = entry.find_all('div', recursive=False)
             if len(cols) == 3:
-                front = cols[0].get_text().strip().replace('\n', '')
-                back = cols[2].get_text().strip().replace('\n', '')
+                front = unicodedata.normalize('NFKC', cols[0].get_text().strip().replace('\n', ' ', 1).replace('\n', ''))
+                back = unicodedata.normalize('NFKC', cols[2].get_text().strip().replace('\n', ' ', 1).replace('\n', ''))
                 click.echo(click.style(front, fg='green'))
                 click.echo(click.style(back, fg='green'))
                 valid = False
