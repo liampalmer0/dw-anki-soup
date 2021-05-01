@@ -36,7 +36,6 @@ def validate_use_entry(choice):
         return True
 
 def add_entries(entries, deck, model):
-    click.echo('adding {} entries'.format(len(entries), deck))
     for e in entries:
         deck.add_note(genanki.Note(
             model=model,
@@ -86,27 +85,31 @@ def parse(url, i):
     soup = BeautifulSoup(
         subprocess.run(["curl", url], capture_output=True).stdout,
         'html.parser', parse_only=only_vocab)
+    deck = create_deck()
+    all_words = []
+    add = []
+    for entry in soup.select("div.row.vocabulary"):
+        cols = entry.find_all('div', recursive=False)
+        if len(cols) == 3:
+            front = unicodedata.normalize(
+                'NFKC',
+                cols[0].get_text().strip()
+                    .replace('\n', ' ', 1)
+                    .replace('\n', ''))
+            back = unicodedata.normalize(
+                'NFKC',
+                cols[2].get_text().strip()
+                    .replace('\n', ' ', 1)
+                    .replace('\n', ''))
+            all_words.append({'front': front, 'back': back})
     if i:
         click.echo(
             '== Interactive Mode == \n'
             '> Review and choose which words to add\n'
         )
-        add = []
-        for entry in soup.select("div.row.vocabulary"):
-            cols = entry.find_all('div', recursive=False)
-            if len(cols) == 3:
-                front = unicodedata.normalize(
-                    'NFKC',
-                    cols[0].get_text().strip()
-                        .replace('\n', ' ', 1)
-                        .replace('\n', ''))
-                back = unicodedata.normalize(
-                    'NFKC',
-                    cols[2].get_text().strip()
-                        .replace('\n', ' ', 1)
-                        .replace('\n', ''))
-                click.echo(click.style(front, fg='green'))
-                click.echo(click.style(back, fg='green'))
+        for pair in all_words:
+                click.echo(click.style(pair['front'], fg='green'))
+                click.echo(click.style(pair['back'], fg='green'))
                 valid = False
                 choice = 'n'
                 while not valid:
@@ -115,18 +118,17 @@ def parse(url, i):
                         default='y').lower()
                     valid = validate_use_entry(choice) 
                 if choice == 'y':
-                   add.append({'front': front, 'back': back})
+                   add.append({'front': pair['front'], 'back': pair['back']})
                 elif choice == 'n':
                     pass
                 elif choice == 'e':
-                    add.append(edit(front=front, back=back))
-        click.echo(add)
-        deck = create_deck()
+                    add.append(edit(front=pair['front'], back=pair['back']))
+        click.echo('Adding {} entries'.format(len(add)))
         add_entries(add, deck, create_model())
-        genanki.Package(deck).write_to_file('dw-vocab.apkg')
     else:
-        # TODO: set up automatic add
-        click.echo('adding all to deck')
+        click.echo("Adding all entries ({})".format(len(all_words)))
+        add_entries(all_words, deck, create_model())
+    genanki.Package(deck).write_to_file('dw-vocab.apkg')
 
 if __name__ == '__main__':
     parse()
